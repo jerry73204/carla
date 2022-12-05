@@ -147,6 +147,9 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
     BOOST_TOOLSET="clang-8.0"
     BOOST_CFLAGS="-fPIC -std=c++14 -DBOOST_ERROR_CODE_HEADER_ONLY"
 
+    # Using `clang-8` compiler instead of clang
+    echo "using clang : 8.0 : clang-8 ;" >> user-config.jam
+
     py3="/usr/bin/env python${PY_VERSION}"
     py3_root=`${py3} -c "import sys; print(sys.prefix)"`
     pyv=`$py3 -c "import sys;x='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(x)";`
@@ -156,14 +159,25 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
         --with-libraries=python,filesystem,system,program_options \
         --with-python=${py3} --with-python-root=${py3_root}
 
+
     if ${TRAVIS} ; then
       echo "using python : ${pyv} : ${py3_root}/bin/python${PY_VERSION} ;" > ${HOME}/user-config.jam
     else
       echo "using python : ${pyv} : ${py3_root}/bin/python${PY_VERSION} ;" > project-config.jam
     fi
 
-    ./b2 toolset="${BOOST_TOOLSET}" cxxflags="${BOOST_CFLAGS}" --prefix="../${BOOST_BASENAME}-install" -j ${CARLA_BUILD_CONCURRENCY} stage release
-    ./b2 toolset="${BOOST_TOOLSET}" cxxflags="${BOOST_CFLAGS}" --prefix="../${BOOST_BASENAME}-install" -j ${CARLA_BUILD_CONCURRENCY} install
+    ./b2 --user-config=user-config.jam \
+         toolset="${BOOST_TOOLSET}" \
+         cxxflags="${BOOST_CFLAGS}" \
+         --prefix="../${BOOST_BASENAME}-install" \
+         -j ${CARLA_BUILD_CONCURRENCY} \
+         stage release
+    ./b2 --user-config=user-config.jam \
+         toolset="${BOOST_TOOLSET}" \
+         cxxflags="${BOOST_CFLAGS}" \
+         --prefix="../${BOOST_BASENAME}-install" \
+         -j ${CARLA_BUILD_CONCURRENCY} \
+         install
 
     popd >/dev/null
 
