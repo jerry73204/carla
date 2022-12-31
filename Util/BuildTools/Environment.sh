@@ -33,7 +33,7 @@ else
 fi
 
 function get_git_repository_version {
-  git describe --tags --dirty --always
+  echo '0.9.14'
 }
 
 function copy_if_changed {
