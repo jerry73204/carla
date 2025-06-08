@@ -1,0 +1,76 @@
+@PACKAGE_INIT@
+
+# CarlaConfig.cmake - CMake configuration file for CARLA simulator client library
+# This file provides the CARLA::carla-client target for other CMake projects
+
+# Set version information
+set(CARLA_VERSION "@CARLA_VERSION@")
+
+# Check if components are requested
+set(_carla_supported_components carla-client)
+
+foreach(_comp ${Carla_FIND_COMPONENTS})
+  if (NOT _comp IN_LIST _carla_supported_components)
+    set(Carla_FOUND FALSE)
+    set(Carla_NOT_FOUND_MESSAGE "Unsupported component: ${_comp}")
+  endif()
+endforeach()
+
+# Include the exported targets
+include("${CMAKE_CURRENT_LIST_DIR}/CarlaTargets.cmake")
+
+# Define the imported target alias for easier usage
+if(TARGET Carla::carla-client-interface AND NOT TARGET Carla::carla-client)
+  add_library(Carla::carla-client ALIAS Carla::carla-client-interface)
+endif()
+
+# Create convenience alias - must use the base interface target, not another alias
+if(TARGET Carla::carla-client-interface AND NOT TARGET Carla::Carla)
+  add_library(Carla::Carla ALIAS Carla::carla-client-interface)
+endif()
+
+# Set up variables for compatibility
+get_target_property(CARLA_INCLUDE_DIRS Carla::carla-client INTERFACE_INCLUDE_DIRECTORIES)
+# Compute the library path relative to this config file
+get_filename_component(_carla_config_dir "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(_carla_root_dir "${_carla_config_dir}/../../.." ABSOLUTE)
+
+# Set up all libraries that need to be linked
+set(CARLA_LIBRARIES
+  "${_carla_root_dir}/lib/libcarla-client.a"
+  "${_carla_root_dir}/lib/librpc.a"
+  "${_carla_root_dir}/lib/libRecast.a"
+  "${_carla_root_dir}/lib/libDetour.a"
+  "${_carla_root_dir}/lib/libDetourCrowd.a"
+  "${_carla_root_dir}/lib/libpng16.a"
+  "${_carla_root_dir}/lib/libz.a"
+  pthread
+)
+
+# Also provide individual library paths for reference
+set(CARLA_CLIENT_LIBRARY "${_carla_root_dir}/lib/libcarla-client.a")
+set(CARLA_RPC_LIBRARY "${_carla_root_dir}/lib/librpc.a")
+set(CARLA_RECAST_LIBRARY "${_carla_root_dir}/lib/libRecast.a")
+set(CARLA_DETOUR_LIBRARY "${_carla_root_dir}/lib/libDetour.a")
+set(CARLA_DETOUR_CROWD_LIBRARY "${_carla_root_dir}/lib/libDetourCrowd.a")
+
+# Set found variable
+set(Carla_FOUND TRUE)
+
+# Print status information
+if(NOT Carla_FIND_QUIETLY)
+  message(STATUS "Found CARLA: ${CARLA_VERSION}")
+  message(STATUS "  Libraries: ${CARLA_LIBRARIES}")
+  message(STATUS "  Include dirs: ${CARLA_INCLUDE_DIRS}")
+endif()
+
+# Provide usage information
+if(NOT Carla_FIND_QUIETLY)
+  message(STATUS "")
+  message(STATUS "To use CARLA in your CMake project:")
+  message(STATUS "  find_package(Carla REQUIRED)")
+  message(STATUS "  target_link_libraries(your_target PRIVATE Carla::carla-client)")
+  message(STATUS "")
+endif()
+
+check_required_components(Carla)

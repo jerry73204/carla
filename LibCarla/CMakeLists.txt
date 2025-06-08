@@ -378,4 +378,182 @@ if (BUILD_CARLA_CLIENT)
     ${CARLA_RTTI_DEFINITIONS}
   )
 
+  # Set target properties for better CMake integration
+  set_target_properties(carla-client PROPERTIES
+    VERSION ${CARLA_VERSION}
+    SOVERSION ${CARLA_VERSION_MAJOR}
+    OUTPUT_NAME carla-client
+    EXPORT_NAME carla-client
+    PUBLIC_HEADER ""
+  )
+
+  # Create interface properties for consuming projects
+  target_compile_features(carla-client PUBLIC cxx_std_14)
+
+  # Add interface compile definitions that consumers will inherit
+  target_compile_definitions(carla-client INTERFACE
+    $<BUILD_INTERFACE:CARLA_BUILD_INTERFACE>
+    $<INSTALL_INTERFACE:CARLA_INSTALL_INTERFACE>
+  )
+
+  # Install LibCarla client library and headers
+  install(TARGETS carla-client
+    ARCHIVE DESTINATION lib COMPONENT carla-client
+    LIBRARY DESTINATION lib COMPONENT carla-client
+    RUNTIME DESTINATION bin COMPONENT carla-client
+  )
+
+  # Create an interface library for export (avoids dependency export issues)
+  add_library(carla-client-interface INTERFACE)
+
+  # Set the interface properties for consumers
+  target_include_directories(carla-client-interface INTERFACE
+    $<INSTALL_INTERFACE:include>
+  )
+  target_compile_features(carla-client-interface INTERFACE cxx_std_14)
+
+  # Install all dependency libraries to make them available
+  install(TARGETS rpc Recast Detour DetourCrowd png_static zlibstatic
+    ARCHIVE DESTINATION lib COMPONENT carla-client
+    LIBRARY DESTINATION lib COMPONENT carla-client
+  )
+
+  # Link to all required libraries in the interface target
+  target_link_libraries(carla-client-interface INTERFACE
+    $<INSTALL_INTERFACE:\${_IMPORT_PREFIX}/lib/libcarla-client.a>
+    $<INSTALL_INTERFACE:\${_IMPORT_PREFIX}/lib/librpc.a>
+    $<INSTALL_INTERFACE:\${_IMPORT_PREFIX}/lib/libRecast.a>
+    $<INSTALL_INTERFACE:\${_IMPORT_PREFIX}/lib/libDetour.a>
+    $<INSTALL_INTERFACE:\${_IMPORT_PREFIX}/lib/libDetourCrowd.a>
+    $<INSTALL_INTERFACE:\${_IMPORT_PREFIX}/lib/libpng16.a>
+    $<INSTALL_INTERFACE:\${_IMPORT_PREFIX}/lib/libz.a>
+    pthread
+  )
+
+  # Install the interface library with export information
+  install(TARGETS carla-client-interface
+    EXPORT CarlaTargets
+    COMPONENT carla-client
+  )
+
+  # Install LibCarla headers
+  install(DIRECTORY ${LIBCARLA_SOURCE_PATH}/carla
+    DESTINATION include
+    COMPONENT carla-client
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+    PATTERN "test" EXCLUDE
+    PATTERN "examples" EXCLUDE
+  )
+
+  # Install third-party headers that are part of the public API
+  install(DIRECTORY ${LIBCARLA_SOURCE_PATH}/third-party/
+    DESTINATION include/third-party
+    COMPONENT carla-client
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+    PATTERN "test" EXCLUDE
+    PATTERN "examples" EXCLUDE
+    PATTERN "build" EXCLUDE
+  )
+
+  # === THIRD-PARTY DEPENDENCY HEADERS INSTALLATION ===
+
+  # Install RPC library headers (from rpclib dependency)
+  set(RPCLIB_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/rpclib-src/include)
+  if(EXISTS ${RPCLIB_INCLUDE_DIR})
+    install(DIRECTORY ${RPCLIB_INCLUDE_DIR}/
+      DESTINATION include
+      COMPONENT carla-client
+      FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl"
+      PATTERN "test" EXCLUDE
+      PATTERN "examples" EXCLUDE
+      PATTERN "benchmark" EXCLUDE
+    )
+    message(STATUS "CARLA: Will install RPC headers from ${RPCLIB_INCLUDE_DIR}")
+  else()
+    message(WARNING "CARLA: RPC headers not found at ${RPCLIB_INCLUDE_DIR}")
+  endif()
+
+  # Install RecastNavigation headers
+  set(RECAST_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/recastnavigation-src)
+  if(EXISTS ${RECAST_INCLUDE_DIR})
+    # Install Detour headers
+    if(EXISTS ${RECAST_INCLUDE_DIR}/Detour/Include)
+      install(DIRECTORY ${RECAST_INCLUDE_DIR}/Detour/Include/
+        DESTINATION include
+        COMPONENT carla-client
+        FILES_MATCHING PATTERN "*.h"
+      )
+      message(STATUS "CARLA: Will install Detour headers from ${RECAST_INCLUDE_DIR}/Detour/Include")
+    endif()
+
+    # Install Recast headers
+    if(EXISTS ${RECAST_INCLUDE_DIR}/Recast/Include)
+      install(DIRECTORY ${RECAST_INCLUDE_DIR}/Recast/Include/
+        DESTINATION include
+        COMPONENT carla-client
+        FILES_MATCHING PATTERN "*.h"
+      )
+      message(STATUS "CARLA: Will install Recast headers from ${RECAST_INCLUDE_DIR}/Recast/Include")
+    endif()
+
+    # Install DetourCrowd headers
+    if(EXISTS ${RECAST_INCLUDE_DIR}/DetourCrowd/Include)
+      install(DIRECTORY ${RECAST_INCLUDE_DIR}/DetourCrowd/Include/
+        DESTINATION include
+        COMPONENT carla-client
+        FILES_MATCHING PATTERN "*.h"
+      )
+      message(STATUS "CARLA: Will install DetourCrowd headers from ${RECAST_INCLUDE_DIR}/DetourCrowd/Include")
+    endif()
+  else()
+    message(WARNING "CARLA: RecastNavigation headers not found at ${RECAST_INCLUDE_DIR}")
+  endif()
+
+  # Note: PNG, zlib, and Eigen headers are internal dependencies
+  # Only RPC and RecastNavigation headers are needed for public API
+
+  # Export targets for use by other CMake projects
+  install(EXPORT CarlaTargets
+    FILE CarlaTargets.cmake
+    NAMESPACE Carla::
+    DESTINATION lib/cmake/Carla
+    COMPONENT carla-client
+  )
+
+  # Create package configuration files
+  include(CMakePackageConfigHelpers)
+
+  # Generate CarlaConfig.cmake
+  configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CarlaConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/CarlaConfig.cmake
+    INSTALL_DESTINATION lib/cmake/Carla
+    PATH_VARS CMAKE_INSTALL_PREFIX
+  )
+
+  # Generate CarlaConfigVersion.cmake
+  write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/CarlaConfigVersion.cmake
+    VERSION ${CARLA_VERSION}
+    COMPATIBILITY SameMajorVersion
+  )
+
+  # Install package configuration files
+  install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/CarlaConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/CarlaConfigVersion.cmake
+    DESTINATION lib/cmake/Carla
+    COMPONENT carla-client
+  )
+
+  # Update pkg-config file for non-CMake projects
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/carla-client.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/carla-client.pc
+    @ONLY
+  )
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/carla-client.pc
+    DESTINATION lib/pkgconfig
+    COMPONENT carla-client
+  )
 endif ()
