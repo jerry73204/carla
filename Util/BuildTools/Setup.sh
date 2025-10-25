@@ -87,6 +87,12 @@ else
   git clone --depth=1 -b release_80  https://github.com/llvm-mirror/libcxx.git ${LLVM_BASENAME}-source/projects/libcxx
   git clone --depth=1 -b release_80  https://github.com/llvm-mirror/libcxxabi.git ${LLVM_BASENAME}-source/projects/libcxxabi
 
+  # Patch LLVM CMakeLists.txt for CMake 4.x compatibility
+  # CMake 4.x removed support for cmake_minimum_required < 3.5
+  # Replace all old cmake versions with 3.5
+  # Handle both "VERSION X.Y" and " (VERSION X.Y)" formats
+  find ${LLVM_BASENAME}-source -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required[[:space:]]*([[:space:]]*VERSION[[:space:]]\+[23]\.[0-9]\+\(\.[0-9]\+\)\?)/cmake_minimum_required(VERSION 3.5)/g' {} \;
+
   log "Compiling libc++."
 
   mkdir -p ${LLVM_BASENAME}-build
@@ -143,7 +149,7 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
     BOOST_PACKAGE_BASENAME=boost_${BOOST_VERSION//./_}
 
     log "Retrieving boost."
-    wget "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" || true
+    wget "https://archives.boost.io/release/${BOOST_VERSION}/source/${BOOST_PACKAGE_BASENAME}.tar.gz" -O ${BOOST_PACKAGE_BASENAME}.tar.gz || true
     # try to use the backup boost we have in Jenkins
     if [[ ! -f "${BOOST_PACKAGE_BASENAME}.tar.gz" ]] ; then
       log "Using boost backup"
@@ -287,6 +293,11 @@ else
 
   git clone --depth=1 -b release-${GTEST_VERSION} https://github.com/google/googletest.git ${GTEST_BASENAME}-source
 
+  # Patch Google Test CMakeLists.txt for CMake 4.x compatibility
+  # CMake 4.x removed support for cmake_minimum_required < 3.5
+  # Replace all old cmake versions with 3.5
+  find ${GTEST_BASENAME}-source -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required[[:space:]]*([[:space:]]*VERSION[[:space:]]\+[23]\.[0-9]\+\(\.[0-9]\+\)\?)/cmake_minimum_required(VERSION 3.5)/g' {} \;
+
   log "Building Google Test with libc++."
 
   mkdir -p ${GTEST_BASENAME}-libcxx-build
@@ -356,6 +367,11 @@ else
   git reset --hard ${RECAST_COMMIT}
 
   popd >/dev/null
+
+  # Patch Recast CMakeLists.txt for CMake 4.x compatibility
+  # CMake 4.x removed support for cmake_minimum_required < 3.5
+  # Replace all old cmake versions with 3.5
+  find ${RECAST_BASENAME}-source -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required[[:space:]]*([[:space:]]*VERSION[[:space:]]\+[23]\.[0-9]\+\(\.[0-9]\+\)\?)/cmake_minimum_required(VERSION 3.5)/g' {} \;
 
   log "Building Recast & Detour with libc++."
 
@@ -454,6 +470,12 @@ else
   log "Extracting xerces-c."
   tar -xzf ${XERCESC_BASENAME}.tar.gz
   mv ${XERCESC_BASENAME} ${XERCESC_SRC_DIR}
+
+  # Patch xerces-c CMakeLists.txt for CMake 4.x compatibility
+  # CMake 4.x removed support for cmake_minimum_required < 3.5
+  # Replace all old cmake versions with 3.5
+  find ${XERCESC_SRC_DIR} -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required[[:space:]]*([[:space:]]*VERSION[[:space:]]\+[23]\.[0-9]\+\(\.[0-9]\+\)\?)/cmake_minimum_required(VERSION 3.5)/g' {} \;
+
   mkdir -p ${XERCESC_INSTALL_DIR}
   mkdir -p ${XERCESC_SRC_DIR}/build
 
