@@ -315,6 +315,11 @@ else
   end_download_time=$(date +%s)
   echo "Elapsed Time downloading rpclib: $(($end_download_time-$start_download_time)) seconds"
 
+  # Patch Google Test CMakeLists.txt for CMake 4.x compatibility
+  # CMake 4.x removed support for cmake_minimum_required < 3.5
+  # Replace all old cmake versions with 3.5
+  find ${GTEST_BASENAME}-source -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 2\.[0-9]\+\.[0-9]\+)/cmake_minimum_required(VERSION 3.5)/g' {} \;
+
   log "Building Google Test with libc++."
 
   mkdir -p ${GTEST_BASENAME}-libcxx-build
@@ -381,6 +386,10 @@ else
 
   end=$(date +%s)
   echo "Elapsed Time downloading: $(($end-$start)) seconds"
+
+  # Patch Recast & Detour CMakeLists.txt for CMake 4.x compatibility
+  # CMake 4.x removed support for cmake_minimum_required < 3.5
+  find ${RECAST_BASENAME}-source -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION [23]\.[0-9]\+)/cmake_minimum_required(VERSION 3.5)/g' {} \;
 
   pushd ${RECAST_BASENAME}-source >/dev/null
 
@@ -499,6 +508,11 @@ else
   echo "Elapsed Time Extracting xerces-c: $(($end-$start)) seconds"
 
   mv ${XERCESC_BASENAME} ${XERCESC_SRC_DIR}
+
+  # Patch xerces-c CMakeLists.txt for CMake 4.x compatibility
+  # CMake 4.x removed support for cmake_minimum_required < 3.5
+  find ${XERCESC_SRC_DIR} -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION [23]\.[0-9]\+\(\.[0-9]\+\)\?)/cmake_minimum_required(VERSION 3.5)/g' {} \;
+
   mkdir -p ${XERCESC_INSTALL_DIR}
   mkdir -p ${XERCESC_SRC_DIR}/build
 
