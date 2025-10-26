@@ -236,6 +236,11 @@ else
 
   git clone --depth=1 -b release-${GTEST_VERSION} https://github.com/google/googletest.git ${GTEST_BASENAME}-source
 
+  # Fix CMake minimum version for CMake 4.x compatibility (2025)
+  sed -i 's/cmake_minimum_required(VERSION 2\.8\.8)/cmake_minimum_required(VERSION 3.5.0)/' ${GTEST_BASENAME}-source/CMakeLists.txt
+  sed -i 's/cmake_minimum_required(VERSION 2\.6\.4)/cmake_minimum_required(VERSION 3.5.0)/' ${GTEST_BASENAME}-source/googlemock/CMakeLists.txt
+  sed -i 's/cmake_minimum_required(VERSION 2\.6\.4)/cmake_minimum_required(VERSION 3.5.0)/' ${GTEST_BASENAME}-source/googletest/CMakeLists.txt
+
   log "Building Google Test with libc++."
 
   mkdir -p ${GTEST_BASENAME}-libcxx-build
@@ -301,6 +306,9 @@ else
   pushd ${RECAST_BASENAME}-source >/dev/null
 
   git checkout carla
+
+  # Fix CMake minimum version for CMake 4.x compatibility (2025)
+  find . -name "CMakeLists.txt" -exec sed -i -E 's/cmake_minimum_required\(VERSION [0-3]\.[0-9]+(\.[0-9]+)?\)/cmake_minimum_required(VERSION 3.5.0)/' {} \;
 
   popd >/dev/null
 
@@ -401,6 +409,9 @@ else
   mv ${XERCESC_BASENAME} ${XERCESC_SRC_DIR}
   mkdir -p ${XERCESC_INSTALL_DIR}
   mkdir -p ${XERCESC_SRC_DIR}/build
+
+  # Fix CMake minimum version for CMake 4.x compatibility (2025)
+  sed -i -E 's/cmake_minimum_required\(VERSION [0-3]\.[0-9]+(\.[0-9]+)?\)/cmake_minimum_required(VERSION 3.5.0)/' ${XERCESC_SRC_DIR}/CMakeLists.txt
 
   pushd ${XERCESC_SRC_DIR}/build >/dev/null
 
