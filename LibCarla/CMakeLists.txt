@@ -353,7 +353,6 @@ if (BUILD_CARLA_CLIENT)
   target_link_libraries (
     carla-client PUBLIC
     Boost::asio
-    Boost::python
     Boost::algorithm
     Boost::geometry
     Boost::assert
@@ -365,7 +364,11 @@ if (BUILD_CARLA_CLIENT)
     zlibstatic
     rpc
   )
-  
+
+  if (BUILD_PYTHON_API)
+    target_link_libraries (carla-client PUBLIC Boost::python)
+  endif ()
+
   target_include_directories (
     carla-client PUBLIC
     ${LIBCARLA_SOURCE_PATH}
