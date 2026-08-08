@@ -6,6 +6,7 @@
 
 #include "carla/client/LightManager.h"
 
+#include "carla/Logging.h"
 #include "carla/client/detail/Simulator.h"
 
 
@@ -19,7 +20,17 @@ LightManager::~LightManager(){
     _episode.Lock()->RemoveOnTickEvent(_on_light_update_register_id);
     _episode.Lock()->RemoveLightUpdateChangeEvent(_on_light_update_register_id);
   }
-  UpdateServerLightsState(true);
+  // Destructors are implicitly noexcept, and this RPC throws precisely when
+  // the client is being torn down because the server is unreachable — which
+  // would turn a normal disconnect into std::terminate. The final state
+  // flush is best-effort.
+  try {
+    UpdateServerLightsState(true);
+  } catch (const std::exception &e) {
+    log_warning("LightManager: could not flush light state on shutdown:", e.what());
+  } catch (...) {
+    log_warning("LightManager: could not flush light state on shutdown");
+  }
 }
 
 void LightManager::SetEpisode(detail::WeakEpisodeProxy episode) {

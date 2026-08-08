@@ -7,9 +7,11 @@
 #pragma once
 
 #include "carla/AtomicList.h"
+#include "carla/Logging.h"
 #include "carla/NonCopyable.h"
 
 #include <atomic>
+#include <exception>
 #include <functional>
 
 namespace carla {
@@ -25,7 +27,18 @@ namespace detail {
     void Call(InputsT... args) const {
       auto list = _list.Load();
       for (auto &item : *list) {
-        item.callback(args...);
+        // Callbacks run on the episode's worker thread, where an escaped
+        // exception cannot be caught by any user code and calls
+        // std::terminate. The built-in LightManager registers callbacks that
+        // perform RPC calls, so a server outage would otherwise kill the
+        // whole client process.
+        try {
+          item.callback(args...);
+        } catch (const std::exception &e) {
+          log_warning("exception thrown by a registered callback:", e.what());
+        } catch (...) {
+          log_warning("unknown exception thrown by a registered callback");
+        }
       }
     }
 
