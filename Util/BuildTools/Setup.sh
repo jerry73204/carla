@@ -583,8 +583,10 @@ fi
 mkdir -p ${LIBCARLA_INSTALL_CLIENT_FOLDER}/lib/
 cp ${XERCESC_LIB} ${LIBCARLA_INSTALL_CLIENT_FOLDER}/lib/
 
-mkdir -p ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
-cp -p ${XERCESC_SERVER_LIB} ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
+if ${HAS_UE4_TOOLCHAIN} ; then
+  mkdir -p ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
+  cp -p ${XERCESC_SERVER_LIB} ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
+fi
 
 # ==============================================================================
 # -- Get Eigen headers 3.1.0 (CARLA dependency) -------------------------------------
@@ -819,8 +821,10 @@ fi
 
 cp ${PROJ_LIB} ${LIBCARLA_INSTALL_CLIENT_FOLDER}/lib/
 
-mkdir -p ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
-cp -p ${PROJ_SERVER_LIB} ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
+if ${HAS_UE4_TOOLCHAIN} ; then
+  mkdir -p ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
+  cp -p ${PROJ_SERVER_LIB} ${LIBCARLA_INSTALL_SERVER_FOLDER}/lib/
+fi
 
 # ==============================================================================
 # -- Get and compile patchelf --------------------------------------------------
