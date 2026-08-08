@@ -52,11 +52,26 @@ done
 
 source $(dirname "$0")/Environment.sh
 
-export CC="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang"
-export CXX="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin/clang++"
-export PATH="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin:$PATH"
-
-CXX_TAG=c10
+# Prefer UE4's bundled clang-10; without an UnrealEngine checkout (client-only
+# builds, e.g. for carla-rust), fall back to the system clang. Only the
+# libstdc++ artifacts are usable then — the libc++ dependency variants need
+# UE4's bundled libc++ headers and are skipped below.
+UE4_CLANG_BIN="$UE4_ROOT/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/v17_clang-10.0.1-centos7/x86_64-unknown-linux-gnu/bin"
+if [ -x "$UE4_CLANG_BIN/clang++" ]; then
+  export CC="$UE4_CLANG_BIN/clang"
+  export CXX="$UE4_CLANG_BIN/clang++"
+  export PATH="$UE4_CLANG_BIN:$PATH"
+  CXX_TAG=c10
+  CARLA_BOOST_TOOLSET="clang-10.0"
+  HAS_UE4_TOOLCHAIN=true
+else
+  export CC=clang
+  export CXX=clang++
+  CXX_TAG=c$(clang++ --version | grep -oE 'version [0-9]+' | head -1 | grep -oE '[0-9]+')
+  CARLA_BOOST_TOOLSET="clang"
+  HAS_UE4_TOOLCHAIN=false
+  log "UnrealEngine toolchain not found; using system $(clang++ --version | head -1) (tag ${CXX_TAG}, libstdc++ artifacts only)."
+fi
 
 # Convert comma-separated string to array of unique elements.
 IFS="," read -r -a PY_VERSION_LIST <<< "${PY_VERSION_LIST}"
@@ -171,7 +186,7 @@ for PY_VERSION in ${PY_VERSION_LIST[@]} ; do
 
     pushd ${BOOST_BASENAME}-source >/dev/null
 
-    BOOST_TOOLSET="clang-10.0"
+    BOOST_TOOLSET="${CARLA_BOOST_TOOLSET}"
     BOOST_CFLAGS="-fPIC -std=c++14 -DBOOST_ERROR_CODE_HEADER_ONLY"
 
     py3="/usr/bin/env python${PY_VERSION}"
@@ -225,7 +240,7 @@ RPCLIB_LIBCXX_LIBPATH=${PWD}/${RPCLIB_BASENAME}-libcxx-install/lib
 RPCLIB_LIBSTDCXX_INCLUDE=${PWD}/${RPCLIB_BASENAME}-libstdcxx-install/include
 RPCLIB_LIBSTDCXX_LIBPATH=${PWD}/${RPCLIB_BASENAME}-libstdcxx-install/lib
 
-if [[ -d "${RPCLIB_BASENAME}-libcxx-install" && -d "${RPCLIB_BASENAME}-libstdcxx-install" ]] ; then
+if [[ -d "${RPCLIB_BASENAME}-libstdcxx-install" ]] && { ! ${HAS_UE4_TOOLCHAIN} || [[ -d "${RPCLIB_BASENAME}-libcxx-install" ]]; } ; then
   log "${RPCLIB_BASENAME} already installed."
 else
   rm -Rf \
@@ -242,11 +257,14 @@ else
   end_download_time=$(date +%s)
 
   echo "Elapsed Time downloading rpclib: $(($end_download_time-$start_download_time)) seconds"
-  log "Building rpclib with libc++."
 
   # rpclib does not use any cmake 3.9 feature.
   # As cmake 3.9 is not standard in Ubuntu 16.04, change cmake version to 3.5
   sed -i s/"3.9.0"/"3.5.0"/g ${RPCLIB_BASENAME}-source/CMakeLists.txt
+
+  if ${HAS_UE4_TOOLCHAIN} ; then
+
+  log "Building rpclib with libc++."
 
   mkdir -p ${RPCLIB_BASENAME}-libcxx-build
 
@@ -262,6 +280,8 @@ else
   ninja install
 
   popd >/dev/null
+
+  fi
 
   log "Building rpclib with libstdc++."
 
@@ -298,7 +318,7 @@ GTEST_LIBCXX_LIBPATH=${PWD}/${GTEST_BASENAME}-libcxx-install/lib
 GTEST_LIBSTDCXX_INCLUDE=${PWD}/${GTEST_BASENAME}-libstdcxx-install/include
 GTEST_LIBSTDCXX_LIBPATH=${PWD}/${GTEST_BASENAME}-libstdcxx-install/lib
 
-if [[ -d "${GTEST_BASENAME}-libcxx-install" && -d "${GTEST_BASENAME}-libstdcxx-install" ]] ; then
+if [[ -d "${GTEST_BASENAME}-libstdcxx-install" ]] && { ! ${HAS_UE4_TOOLCHAIN} || [[ -d "${GTEST_BASENAME}-libcxx-install" ]]; } ; then
   log "${GTEST_BASENAME} already installed."
 else
   rm -Rf \
@@ -320,6 +340,8 @@ else
   # Replace all old cmake versions with 3.5
   find ${GTEST_BASENAME}-source -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 2\.[0-9]\+\.[0-9]\+)/cmake_minimum_required(VERSION 3.5)/g' {} \;
 
+  if ${HAS_UE4_TOOLCHAIN} ; then
+
   log "Building Google Test with libc++."
 
   mkdir -p ${GTEST_BASENAME}-libcxx-build
@@ -336,6 +358,8 @@ else
   ninja install
 
   popd >/dev/null
+
+  fi
 
   log "Building Google Test with libstdc++."
 
@@ -483,7 +507,7 @@ XERCESC_INSTALL_SERVER_DIR=${XERCESC_BASENAME}-install-server
 XERCESC_LIB=${XERCESC_INSTALL_DIR}/lib/libxerces-c.a
 XERCESC_SERVER_LIB=${XERCESC_INSTALL_SERVER_DIR}/lib/libxerces-c.a
 
-if [[ -d ${XERCESC_INSTALL_DIR} &&  -d ${XERCESC_INSTALL_SERVER_DIR} ]] ; then
+if [[ -d ${XERCESC_INSTALL_DIR} ]] && { ! ${HAS_UE4_TOOLCHAIN} || [[ -d ${XERCESC_INSTALL_SERVER_DIR} ]]; } ; then
   log "Xerces-c already installed."
 else
   log "Retrieving xerces-c."
@@ -531,6 +555,8 @@ else
 
   popd >/dev/null
 
+  if ${HAS_UE4_TOOLCHAIN} ; then
+
   mkdir -p ${XERCESC_INSTALL_SERVER_DIR}
 
   pushd ${XERCESC_SRC_DIR}/build >/dev/null
@@ -547,6 +573,8 @@ else
   ninja install
 
   popd >/dev/null
+
+  fi
 
   rm -Rf ${XERCESC_BASENAME}.tar.gz
   rm -Rf ${XERCESC_SRC_DIR}
@@ -725,7 +753,7 @@ PROJ_INSTALL_SERVER_DIR_FULL=${PWD}/${PROJ_INSTALL_SERVER_DIR}
 PROJ_LIB=${PROJ_INSTALL_DIR_FULL}/lib/libproj.a
 PROJ_SERVER_LIB=${PROJ_INSTALL_SERVER_DIR_FULL}/lib/libproj.a
 
-if [[ -d ${PROJ_INSTALL_DIR} && -d ${PROJ_INSTALL_SERVER_DIR_FULL} ]] ; then
+if [[ -d ${PROJ_INSTALL_DIR} ]] && { ! ${HAS_UE4_TOOLCHAIN} || [[ -d ${PROJ_INSTALL_SERVER_DIR_FULL} ]]; } ; then
   log "PROJ already installed."
 else
   log "Retrieving PROJ"
@@ -762,6 +790,8 @@ else
 
   popd >/dev/null
 
+  if ${HAS_UE4_TOOLCHAIN} ; then
+
   mkdir -p ${PROJ_INSTALL_SERVER_DIR}
 
   pushd ${PROJ_SRC_DIR}/build >/dev/null
@@ -779,6 +809,8 @@ else
   ninja install
 
   popd >/dev/null
+
+  fi
 
   rm -Rf ${PROJ_TAR}
   rm -Rf ${PROJ_SRC_DIR}
