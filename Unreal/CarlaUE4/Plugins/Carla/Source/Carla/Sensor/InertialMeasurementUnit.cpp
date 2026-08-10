@@ -146,9 +146,18 @@ carla::geom::Vector3D AInertialMeasurementUnit::ComputeAccelerometer(
 
 carla::geom::Vector3D AInertialMeasurementUnit::ComputeGyroscope()
 {
-  check(GetOwner() != nullptr);
-  const FVector AngularVelocity =
-      GetActorAngularVelocityInRadians(*GetOwner());
+  // The owner can already be gone: destroying an actor does not destroy the sensors
+  // attached to it, so this runs at least once more after the parent vehicle is removed.
+  // check() is compiled out of Shipping builds, which turned the dereference below into a
+  // null read of AActor::GetRootComponent and took the whole server down with SIGSEGV.
+  // Without an owner there is no angular velocity to measure, so report the noise floor.
+  AActor *const Owner = GetOwner();
+  if (!IsValid(Owner) || !IsValid(RootComponent))
+  {
+    return ComputeGyroscopeNoise(FVector::ZeroVector);
+  }
+
+  const FVector AngularVelocity = GetActorAngularVelocityInRadians(*Owner);
 
   const FQuat SensorLocalRotation =
       RootComponent->GetRelativeTransform().GetRotation();
@@ -184,6 +193,19 @@ float AInertialMeasurementUnit::ComputeCompass()
 
 void AInertialMeasurementUnit::PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaTime)
 {
+  // A sensor outlives the actor it is attached to -- CARLA destroys neither the sensors of
+  // a destroyed vehicle nor their ticks -- and every reading below is relative to that
+  // actor. Skip the frame rather than measure a vehicle that no longer exists; the sensor
+  // itself is destroyed moments later, by its owner's client or by the episode.
+  //
+  // This is the crash a packaged 0.9.16 server hits within a minute of a scenario that
+  // respawns its ego: ComputeGyroscope dereferenced the null owner (its check() having
+  // been compiled out of Shipping), faulting in AActor::GetRootComponent.
+  if (!IsValid(GetOwner()))
+  {
+    return;
+  }
+
   carla::geom::Vector3D Accelerometer = ComputeAccelerometer(DeltaTime);
   carla::geom::Vector3D Gyroscope = ComputeGyroscope();
   float Compass = ComputeCompass();
