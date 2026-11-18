@@ -161,6 +161,11 @@ set (
   BOOST_EXCLUDED_PROJECTS
   # filesystem # <- Boost.GIL links with Boost.filesystem, so we can't remove the dependency yet.
 )
+if (NOT BUILD_PYTHON_API)
+  # Boost.Python is requested only for the Python API; with it off, Boost's
+  # CMake refuses an explicitly included 'python' (BOOST_ENABLE_PYTHON OFF).
+  list (REMOVE_ITEM BOOST_INCLUDED_PROJECTS python)
+endif ()
 carla_dependency_option (BOOST_INCLUDE_LIBRARIES "${BOOST_INCLUDED_PROJECTS}")
 carla_dependency_option (BOOST_EXCLUDE_LIBRARIES "${BOOST_EXCLUDED_PROJECTS}")
 carla_dependency_option (BOOST_ENABLE_PYTHON ${BUILD_PYTHON_API})
